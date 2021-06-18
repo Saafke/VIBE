@@ -14,6 +14,8 @@
 #
 # Contact: ps-license@tuebingen.mpg.de
 
+# Did it change ?
+
 import os
 os.environ['PYOPENGL_PLATFORM'] = 'egl'
 
@@ -25,6 +27,7 @@ import shutil
 import colorsys
 import argparse
 import numpy as np
+from moviepy.editor import VideoFileClip, concatenate_videoclips, clips_array, vfx
 from tqdm import tqdm
 from multi_person_tracker import MPT
 from torch.utils.data import DataLoader
@@ -290,7 +293,17 @@ def main(args):
             if x.endswith('.png') or x.endswith('.jpg')
         ])
 
-        for frame_idx in tqdm(range(len(image_file_names))):
+        #Load saved images with 2D keypoints visualized
+        image_2D_folder = os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+
+        image_2D_file_names = sorted([
+            os.path.join(image_2D_folder, x)
+            for x in os.listdir(image_2D_folder)
+            if x.endswith('.png') or x.endswith('.jpg')
+        ])
+
+        # X: Loop over images
+        for frame_idx in tqdm(range(len(image_2D_file_names))):
             img_fname = image_file_names[frame_idx]
             img = cv2.imread(img_fname)
 
@@ -331,6 +344,15 @@ def main(args):
             if args.sideview:
                 img = np.concatenate([img, side_img], axis=1)
 
+            # ==== X: Add 2D keypoints to render ====
+            img_2D_fname = image_2D_file_names[frame_idx]
+            print(frame_idx)
+            print(img_2D_fname)
+            img_2D = cv2.imread(img_2D_fname)
+            #img = np.concatenate([img_2D, img], axis=1)
+            img = np.vstack(( np.concatenate([img_2D, np.zeros_like(img_2D)], axis=1), img ))
+            #=======================================#
+            
             cv2.imwrite(os.path.join(output_img_folder, f'{frame_idx:06d}.png'), img)
 
             if args.display:
@@ -348,6 +370,17 @@ def main(args):
         print(f'Saving result video to {save_name}')
         images_to_video(img_folder=output_img_folder, output_vid_file=save_name)
         shutil.rmtree(output_img_folder)
+
+        # # ========= X: Concatenate with 2D keypoints video ========== #
+        # # Stack the videos 
+        # # 1 
+        # # --
+        # # 2
+        # clip1 = VideoFileClip(os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', '2D_keypoints_{}'.format(os.path.basename(video_file))))
+        # clip1 = clip1.set_fps(15)
+        # clip2 = VideoFileClip(save_name)
+        # clips = clips_array([[clip1],[clip2]])
+        # clips.write_videofile(os.path.join(output_path, f'{vid_name.replace(".mp4", "")}_vibe_result_complete.mp4'))
 
     shutil.rmtree(image_folder)
     print('================= END =================')
