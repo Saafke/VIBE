@@ -21,6 +21,7 @@ os.environ['PYOPENGL_PLATFORM'] = 'egl'
 
 import cv2
 import time
+import subprocess
 import torch
 import joblib
 import shutil
@@ -104,6 +105,14 @@ def main(args):
         if tracking_results[person_id]['frames'].shape[0] < MIN_NUM_FRAMES:
             del tracking_results[person_id]
 
+    # ========= Run part-based segmentation ========= #
+
+    # Get the bbox from the tracking result
+
+    # Input cropped images to the CDCL part-based segmentation model
+
+    # Save results somewhere
+
     # ========= Define VIBE model ========= #
     model = VIBE_Demo(
         seqlen=16,
@@ -112,6 +121,7 @@ def main(args):
         add_linear=True,
         use_residual=True,
     ).to(device)
+
 
     # ========= Load pretrained weights ========= #
     pretrained_file = download_ckpt(use_3dpw=False)
@@ -144,10 +154,47 @@ def main(args):
             scale=bbox_scale,
         )
 
+
         bboxes = dataset.bboxes
         frames = dataset.frames
         has_keypoints = True if joints2d is not None else False
 
+        # ========= Run part-based segmentation ========= #
+        
+        # Get the frames
+        print(dataset.image_file_names)
+
+        # Get the bbox from the tracking result
+        print(bboxes)
+        print(bboxes.shape)
+
+        # Crop the frames (via the bboxes) and save the results in CDCL
+        for idx, p in enumerate(dataset.image_file_names):
+            print(idx,p)
+            img = cv2.imread(p)
+            #img = cv2.cvtColor(cv2.imread(p), cv2.COLOR_BGR2RGB)
+            x,y,w,h = bboxes[idx] # center_x, center_y, width, height
+            x = int(x)
+            y = int(y)
+            half_w = int(w/2)
+            half_h = int(h/2)
+            crop_img = img[y-half_h:y+half_h, x-half_w:x+half_w]
+            crop_img = img[y-half_h-10:y+half_h+10, x-half_w-10:x+half_w+10]
+
+            # Save
+            cv2.imwrite("/home/weber/Documents/from-source/CDCL-human-part-segmentation/input/{}.png".format(idx), crop_img)
+        
+        # Run the CDCL part-based segmentation model on the cropped frames
+        pwd = os.getcwd()
+        os.chdir("/home/weber/Documents/from-source/CDCL-human-part-segmentation")
+        print("Current working director is now:", os.getcwd())
+
+        # Run command (with the approriate conda env)
+        cmd = '. /home/weber/anaconda3/etc/profile.d/conda.sh && conda activate /mnt/c7dd8318-a1d3-4622-a5fb-3fc2d8819579/CORSMAL/envs/CDCL; python3 inference_15parts.py --scale=1 --scale=0.5 --scale=0.75'
+        subprocess.call(cmd, shell=True, executable='/bin/bash')
+        os.chdir(pwd)
+        # =============================================== #
+        
         dataloader = DataLoader(dataset, batch_size=args.vibe_batch_size, num_workers=16)
 
         with torch.no_grad():
@@ -293,17 +340,30 @@ def main(args):
             if x.endswith('.png') or x.endswith('.jpg')
         ])
 
-        #Load saved images with 2D keypoints visualized
+        # === Load stored images with 1. 2D keypoints 2. Part-based segmentation (PBS)===
         image_2D_folder = os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+        image_PBS_folder = os.path.join('/home/weber/Documents/from-source/CDCL-human-part-segmentation/output')
 
         image_2D_file_names = sorted([
             os.path.join(image_2D_folder, x)
             for x in os.listdir(image_2D_folder)
             if x.endswith('.png') or x.endswith('.jpg')
         ])
+        
+        def numbers_(x):
+            return(int(x.split("/")[-1][4:-8]))
+        image_PBS_file_names = sorted([
+            os.path.join(image_PBS_folder, x)
+            for x in os.listdir(image_PBS_folder)
+            if x.endswith('.png') or x.endswith('.jpg')
+        ], key=numbers_)
+        print("SORTED PBS")
+        print(image_PBS_file_names)
 
         # X: Loop over images
         for frame_idx in tqdm(range(len(image_2D_file_names))):
+            print("FRAME INDEX:", frame_idx)
+
             img_fname = image_file_names[frame_idx]
             img = cv2.imread(img_fname)
 
@@ -344,13 +404,39 @@ def main(args):
             if args.sideview:
                 img = np.concatenate([img, side_img], axis=1)
 
-            # ==== X: Add 2D keypoints to render ====
+            # ==== Add 2D keypoints and PBS to render ====
             img_2D_fname = image_2D_file_names[frame_idx]
-            print(frame_idx)
-            print(img_2D_fname)
             img_2D = cv2.imread(img_2D_fname)
+
+            img_PBS_fname = image_PBS_file_names[frame_idx]
+            img_PBS = cv2.imread(img_PBS_fname)
+
+            print('PBS FNAME', img_PBS_fname)
+            # PBS images are cropped so resize back to original
+            og_img = image_file_names[frame_idx]
+            og_img = cv2.imread(og_img)
+            cropped_img = img_PBS
+            x,y,_,_ = bboxes[idx] # center_x, center_y, width, height
+            
+            x = int(x)
+            y = int(y)
+            print(cropped_img.shape)
+            # cropped_img.shape[0] == cropped_img.shape[1]
+            h = cropped_img.shape[0]
+            w = cropped_img.shape[1]
+            
+            #full_img = og_img.copy()
+            full_img = np.zeros(og_img.shape)
+
+            print("Full image shape:", full_img.shape)
+            print("Cropped image shape:", cropped_img.shape)
+            print("Cropped full image:", full_img[int(x-(w/2)):int(x+(w/2)), int(y-(h/2)):int(y+(h/2))].shape )
+            print(x-(w/2),x+(w/2),y-(h/2),y+(h/2))
+
+            full_img[int(y-(h/2)):int(y+(h/2)), int(x-(w/2)):int(x+(w/2))] = cropped_img
+
             #img = np.concatenate([img_2D, img], axis=1)
-            img = np.vstack(( np.concatenate([img_2D, np.zeros_like(img_2D)], axis=1), img ))
+            img = np.vstack(( np.concatenate([img_2D, full_img], axis=1), img ))
             #=======================================#
             
             cv2.imwrite(os.path.join(output_img_folder, f'{frame_idx:06d}.png'), img)
