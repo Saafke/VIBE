@@ -18,6 +18,7 @@ import math
 import trimesh
 import pyrender
 import numpy as np
+import json
 from pyrender.constants import RenderFlags
 from lib.models.smpl import get_smpl_faces
 
@@ -79,6 +80,28 @@ class Renderer:
 
         mesh = trimesh.Trimesh(vertices=verts, faces=self.faces, process=False)
 
+        # #################
+        # # Online
+        # f = open('/media/weber/Ubuntu2/ubuntu2/Human_Pose/checker-code/part_based_vertex_label.json',)
+        # labels = json.load(f)
+
+        # # Color the vertex based on its label
+        # vert_colors = []
+        # for idx, vert in enumerate(verts):
+        #     #print("Index:", idx, "| Label:", labels[idx], "| Vert:", vert)
+        #     if idx in labels["rightUpLeg"]:
+        #         vert_colors.append([0.0,0.0,1.0])
+        #         print("TRUE:", idx)
+        #     else:
+        #         vert_colors.append([0.0,1.0,0.0])
+        #         print("False")
+
+        #     #vert_colors.append(label2color(labels[idx])) #BGR
+        # mesh.visual.vertex_colors = vert_colors
+
+        # color_0, texcoord_0, primitive_material = pyrender.Mesh._get_trimesh_props(mesh)
+        # #################
+        
         Rx = trimesh.transformations.rotation_matrix(math.radians(180), [1, 0, 0])
         mesh.apply_transform(Rx)
 
@@ -90,6 +113,9 @@ class Renderer:
             mesh.apply_transform(R)
 
         sx, sy, tx, ty = cam
+        # save camera info
+        if mesh_filename is not None:
+            np.save(mesh_filename[:-4]+".npy",np.asarray(cam))
 
         camera = WeakPerspectiveCamera(
             scale=[sx, sy],
@@ -103,7 +129,8 @@ class Renderer:
             baseColorFactor=(color[0], color[1], color[2], 1.0)
         )
 
-        mesh = pyrender.Mesh.from_trimesh(mesh, material=material)
+        #mesh = pyrender.Mesh.from_trimesh(mesh, material=primitive_material)
+        mesh = pyrender.Mesh.from_trimesh(mesh)
 
         mesh_node = self.scene.add(mesh, 'mesh')
 

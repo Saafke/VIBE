@@ -17,6 +17,7 @@
 import os
 import cv2
 import time
+import tempfile
 import json
 import torch
 import subprocess
@@ -182,7 +183,7 @@ def trim_videos(filename, start_time, end_time, output_filename):
 
 def video_to_images(vid_file, img_folder=None, return_info=False):
     if img_folder is None:
-        img_folder = osp.join('/tmp', osp.basename(vid_file).replace('.', '_'))
+        img_folder = osp.join(tempfile.gettempdir(), osp.basename(vid_file).replace('.', '_'))
 
     os.makedirs(img_folder, exist_ok=True)
 
@@ -230,10 +231,16 @@ def download_ckpt(outdir='data/vibe_data', use_3dpw=False):
 def images_to_video(img_folder, output_vid_file):
     os.makedirs(img_folder, exist_ok=True)
 
-    command = [
-        'ffmpeg', '-y', '-threads', '16', '-i', f'{img_folder}/%06d.png', '-profile:v', 'baseline',
-        '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', output_vid_file,
-    ]
+    print("\n\n\nNUMBER OF FRAMES", len(os.listdir(img_folder)))
+    print("\n\n\n")
+    # command = [
+    #     'ffmpeg', '-y', '-threads', '16', '-i', f'{img_folder}/%06d.png', '-profile:v', 'baseline',
+    #     '-level', '3.0', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-an', '-v', 'error', output_vid_file,
+    # ]
+
+    print(output_vid_file)
+    command = ['ffmpeg', '-i', f'{img_folder}/%06d.png', '-vcodec', 'copy', output_vid_file]
+    #command = ['ffmpeg', '-i', f'{img_folder}/%06d.png', output_vid_file]
 
     print(f'Running \"{" ".join(command)}\"')
     subprocess.call(command)

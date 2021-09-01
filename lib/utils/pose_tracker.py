@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import numpy as np
 import os.path as osp
+import tempfile
 
 
 def run_openpose(
@@ -41,9 +42,9 @@ def run_openpose(
         '--render_pose', str(render),
         '--video', video_file,
         '--write_json', output_folder,
-        '--display', str(display),
+        '--display', str(display)#,
         #'--write_video', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', '2D_keypoints_{}'.format(os.path.basename(video_file)))
-        '--write_images', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+        #'--write_images', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
 
     ]
 
@@ -81,7 +82,7 @@ def read_posetrack_keypoints(output_folder):
     return people
 
 
-def run_posetracker(video_file, staf_folder, posetrack_output_folder='/tmp', display=False):
+def run_posetracker(video_file, staf_folder, posetrack_output_folder=tempfile.gettempdir(), display=False):
     posetrack_output_folder = os.path.join(
         posetrack_output_folder,
         f'{os.path.basename(video_file)}_posetrack'

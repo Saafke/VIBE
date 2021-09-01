@@ -280,6 +280,9 @@ def main(args):
 
         output_img_folder = f'{image_folder}_output'
         os.makedirs(output_img_folder, exist_ok=True)
+        
+        os.makedirs(os.path.join(output_img_folder, 'front_view'), exist_ok=True) # front view
+        os.makedirs(os.path.join(output_img_folder, 'side_view'), exist_ok=True) # side view
 
         print(f'Rendering output video, writing frames to {output_img_folder}')
 
@@ -294,16 +297,16 @@ def main(args):
         ])
 
         #Load saved images with 2D keypoints visualized
-        image_2D_folder = os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+        # image_2D_folder = os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
 
-        image_2D_file_names = sorted([
-            os.path.join(image_2D_folder, x)
-            for x in os.listdir(image_2D_folder)
-            if x.endswith('.png') or x.endswith('.jpg')
-        ])
+        # image_2D_file_names = sorted([
+        #     os.path.join(image_2D_folder, x)
+        #     for x in os.listdir(image_2D_folder)
+        #     if x.endswith('.png') or x.endswith('.jpg')
+        # ])
 
         # X: Loop over images
-        for frame_idx in tqdm(range(len(image_2D_file_names))):
+        for frame_idx in tqdm(range(len(image_file_names))):
             img_fname = image_file_names[frame_idx]
             img = cv2.imread(img_fname)
 
@@ -316,12 +319,13 @@ def main(args):
 
                 mc = mesh_color[person_id]
 
+                # Saving the mesh or not
                 mesh_filename = None
-
                 if args.save_obj:
                     mesh_folder = os.path.join(output_path, 'meshes', f'{person_id:04d}')
                     os.makedirs(mesh_folder, exist_ok=True)
                     mesh_filename = os.path.join(mesh_folder, f'{frame_idx:06d}.obj')
+
 
                 img = renderer.render(
                     img,
@@ -342,18 +346,24 @@ def main(args):
                     )
 
             if args.sideview:
-                img = np.concatenate([img, side_img], axis=1)
+                combined_img = np.concatenate([img, side_img], axis=1)
 
             # ==== X: Add 2D keypoints to render ====
-            img_2D_fname = image_2D_file_names[frame_idx]
-            print(frame_idx)
-            print(img_2D_fname)
-            img_2D = cv2.imread(img_2D_fname)
-            #img = np.concatenate([img_2D, img], axis=1)
-            img = np.vstack(( np.concatenate([img_2D, np.zeros_like(img_2D)], axis=1), img ))
+            # img_2D_fname = image_2D_file_names[frame_idx]
+            # print(frame_idx)
+            # print(img_2D_fname)
+            # img_2D = cv2.imread(img_2D_fname)
+            # #img = np.concatenate([img_2D, img], axis=1)
+            # img = np.vstack(( np.concatenate([img_2D, np.zeros_like(img_2D)], axis=1), img ))
             #=======================================#
             
-            cv2.imwrite(os.path.join(output_img_folder, f'{frame_idx:06d}.png'), img)
+            if args.sideview:
+                cv2.imwrite(os.path.join(output_img_folder, f'{frame_idx:06d}.png'), combined_img)
+            
+            cv2.imwrite(os.path.join(output_img_folder, 'front_view' ,f'{frame_idx:06d}.png'), img) # save front view
+
+            if args.sideview:
+                cv2.imwrite(os.path.join(output_img_folder, 'side_view', f'{frame_idx:06d}.png'), side_img) # save side view
 
             if args.display:
                 cv2.imshow('Video', img)
@@ -369,6 +379,9 @@ def main(args):
         save_name = os.path.join(output_path, save_name)
         print(f'Saving result video to {save_name}')
         images_to_video(img_folder=output_img_folder, output_vid_file=save_name)
+
+        images_to_video(img_folder=os.path.join(output_img_folder, 'front_view'), output_vid_file=os.path.join(output_path, "front.mp4")) # front 
+        images_to_video(img_folder=os.path.join(output_img_folder, 'side_view'), output_vid_file=os.path.join(output_path, "side.mp4")) # side
         shutil.rmtree(output_img_folder)
 
         # # ========= X: Concatenate with 2D keypoints video ========== #
