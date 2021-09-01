@@ -22,7 +22,6 @@ import numpy as np
 import os.path as osp
 import tempfile
 
-
 def run_openpose(
         video_file,
         output_folder,
