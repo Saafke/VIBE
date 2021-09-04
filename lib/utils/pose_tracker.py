@@ -24,6 +24,7 @@ import tempfile
 
 def run_openpose(
         video_file,
+        image_folder,
         output_folder,
         staf_folder,
         vis=False,
@@ -34,18 +35,34 @@ def run_openpose(
 
     render = 1 if vis else 0
     display = 2 if vis else 0
-    cmd = [
-        'build/examples/openpose/openpose.bin',
-        '--model_pose', 'BODY_21A',
-        '--tracking', '1',
-        '--render_pose', str(render),
-        '--video', video_file,
-        '--write_json', output_folder,
-        '--display', str(display)#,
-        #'--write_video', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', '2D_keypoints_{}'.format(os.path.basename(video_file)))
-        #'--write_images', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+    if video_file is not None:
+        cmd = [
+            'build/examples/openpose/openpose.bin',
+            #'--model_pose', 'BODY_21A',
+            '--tracking', '1',
+            '--render_pose', str(render),
+            '--video', video_file,
+            '--write_json', output_folder,
+            '--display', str(display)#,
+            #'--write_video', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', '2D_keypoints_{}'.format(os.path.basename(video_file)))
+            #'--write_images', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
 
-    ]
+        ]
+    elif image_folder is not None:
+        cmd = [
+            'build/examples/openpose/openpose.bin',
+            #'--model_pose', 'BODY_21A',
+            '--tracking', '1',
+            '--render_pose', str(render),
+            '--image_dir', image_folder,
+            '--write_json', output_folder,
+            '--display', str(display)#,
+            #'--write_video', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', '2D_keypoints_{}'.format(os.path.basename(video_file)))
+            #'--write_images', os.path.join('/media/weber/Ubuntu2/ubuntu2/Human_Pose/temp/', f'{os.path.basename(video_file)}_keypoint_image')
+
+        ]
+    else:
+        raise Exception("Please provide a video file or image folder.")
 
     print('Executing', ' '.join(cmd))
     subprocess.call(cmd)
@@ -80,8 +97,30 @@ def read_posetrack_keypoints(output_folder):
 
     return people
 
+def run_posetracker(video_file, image_folder, staf_folder, posetrack_output_folder=tempfile.gettempdir(), display=False):
+    posetrack_output_folder = os.path.join(
+        posetrack_output_folder,
+        'xavier_webcam_vibe', 'keypoints'
+    )
+    os.makedirs(posetrack_output_folder, exist_ok=True)
 
-def run_posetracker(video_file, staf_folder, posetrack_output_folder=tempfile.gettempdir(), display=False):
+    # run posetrack on video
+    run_openpose(
+        video_file,
+        image_folder,
+        posetrack_output_folder,
+        vis=display,
+        staf_folder=staf_folder
+    )
+
+    people_dict = read_posetrack_keypoints(posetrack_output_folder)
+
+    shutil.rmtree(posetrack_output_folder)
+    shutil.rmtree(image_folder)
+
+    return people_dict
+
+def old_run_posetracker(video_file, image_folder, staf_folder, posetrack_output_folder=tempfile.gettempdir(), display=False):
     posetrack_output_folder = os.path.join(
         posetrack_output_folder,
         f'{os.path.basename(video_file)}_posetrack'

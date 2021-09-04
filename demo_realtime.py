@@ -23,6 +23,7 @@ import torch
 import joblib
 import shutil
 import colorsys
+import tempfile
 import argparse
 import numpy as np
 from moviepy.editor import VideoFileClip, concatenate_videoclips, clips_array, vfx
@@ -54,6 +55,9 @@ MIN_NUM_FRAMES = 25
 def main(args):
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 
+    # Make folder in temp
+    os.makedirs(os.path.join(tempfile.gettempdir(), 'xavier_webcam_vibe'), exist_ok=True)
+
     # ========= READ WEBCAM STREAM ========== #
     cap = cv2.VideoCapture(0)
     
@@ -71,9 +75,20 @@ def main(args):
         c = cv2.waitKey(1)
         if c == 27: # Escape Key
             break
+        
+        # Save the image here (so OpenPose can process it)
+        image_folder = os.path.join(tempfile.gettempdir(), 'xavier_webcam_vibe', 'images')
+        os.makedirs(image_folder, exist_ok=True)
+        cv2.imwrite(os.path.join(image_folder, '0.png'), frame)
+
+        # Run openpose
+        tracking_results = run_posetracker(None, image_folder, staf_folder=args.staf_dir, display=args.display)
+
+        print("Ohyeah.")
 
     cap.release()
     cv2.destroyAllWindows()
+
 
 
     # ========= Run tracking ========= #
